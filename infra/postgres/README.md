@@ -115,4 +115,6 @@ python3 scripts/verify_postgres.py
 - [PostgreSQL 공식 이미지 — 초기화와 18 이상 볼륨 경로](https://github.com/docker-library/docs/blob/master/postgres/README.md)
 - [PostgreSQL 백업·복구](https://www.postgresql.org/docs/18/backup-dump.html)
 
-PostgreSQL 18 이미지의 볼륨 경로는 `/var/lib/postgresql`. 다른 메이저 버전으로 변경 시 단순 태그 교체가 아닌 업그레이드 절차 검토 필요.
+PostgreSQL 18 이미지의 볼륨 경로는 `/var/lib/postgresql`. Compose에는 검증한 이미지 digest 고정. 이미지 업데이트 시 digest 갱신과 재검증 필요. 다른 메이저 버전으로 변경 시 단순 태그 교체가 아닌 업그레이드 절차 검토 필요.
+
+healthcheck는 TCP 연결 사용. 최초 초기화용 임시 서버가 아닌 실제 DB 서버의 준비 상태 확인 목적.

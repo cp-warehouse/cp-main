@@ -2,7 +2,7 @@ name: cp-main-local
 
 services:
   db:
-    image: postgres:18-bookworm
+    image: postgres:18-bookworm@sha256:3725f4e2499eef5134592b3b4ab79a543ed7f8e533b05b5b637af926630f6650
     restart: unless-stopped
     environment:
       POSTGRES_DB: company_analysis
@@ -14,7 +14,7 @@ services:
       - db_data:/var/lib/postgresql
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U company_dev -d company_analysis"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U company_dev -d company_analysis"]
       interval: 5s
       timeout: 5s
       retries: 12
