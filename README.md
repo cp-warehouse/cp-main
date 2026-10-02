@@ -43,6 +43,7 @@ docker compose exec db psql -U company_dev -d company_analysis -c '\dt'
 ## 설계와 개발 기록
 
 - [Phase 1 — 조사 과정과 설계 결정](docs/phase-1.md)
+- [첫 데이터 적재 플랜 — 범위·매핑·중복 처리·검증](docs/ingestion.md)
 - [실행 검증 기록](docs/verification.md)
 - [커밋·PR·리뷰 규칙](CONTRIBUTING.md)
 
