@@ -67,6 +67,15 @@ Docker Desktop: Containers → cp-main-local → db → Logs에서 기동 로그
 
 초기 SQL은 **빈 데이터 디렉터리의 첫 실행에서만 적용**. 이후 SQL 파일 수정·컨테이너 재시작만으로 기존 스키마가 바뀌지 않으므로 후속 변경은 마이그레이션 필요. 기존 DB 비밀번호도 .env 변경만으로 바뀌지 않는 구조.
 
+기존 로컬 DB의 마이그레이션은 중복 여부를 먼저 확인한 뒤 개별 SQL 적용.
+
+```bash
+docker compose exec -T db psql -X -U company_dev -d company_analysis \
+  -c "SELECT company_id,website_url,count(*) FROM product WHERE website_url IS NOT NULL GROUP BY company_id,website_url HAVING count(*)>1"
+docker compose exec -T db psql -X -U company_dev -d company_analysis \
+  < migrations/002_product_website_unique.sql
+```
+
 볼륨 보존과 데이터 변경 이력은 별개. 기업·제품은 현재 값만 저장. 재무 정정은 새로운 source_revision 행으로 보존. 테이블별 의미와 한계는 [설계 기록](../../docs/phase-1.md) 참고.
 
 ## 백업·복구
