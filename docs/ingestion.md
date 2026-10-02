@@ -1,7 +1,44 @@
 # Phase 1 — 첫 데이터 적재 플랜
 
 > 목표: 기업 1개사의 실제 원문을 보관하고, 기업·제품·재무 데이터를 연결한 뒤 재실행해도 중복 없는 적재 검증.
-> 현재: 계획 수립 단계. 수집기·적재기 미구현, 실제 API 호출·적재 미실행.
+> 현재: 네이버 기업·식별자 첫 적재 및 동일 원문 재실행 검증 완료. 재무·제품·마이그레이션은 후속 구현.
+
+## 실행 기록 — 2026-10-02
+
+| 확인 항목 | 실제 결과 |
+|---|---|
+| 기업 식별 | 고유번호 ZIP의 종목코드 `035420` → `NAVER`, DART `00266961` |
+| 기업개황 | API 정상 응답, 법인명 `네이버(주)`, 표시명 `NAVER` |
+| 첫 적재 | `company` 1행 + `company_identifier` 1행 |
+| 같은 원문 재실행 | 두 테이블 추가·갱신 0행, 같은 기업 UUID 유지 |
+| 변환 테스트 | 선택 필드 누락·앞자리 0·API 자료 없음·원문 해시·법인명 검증 4개 테스트 통과 |
+| 남은 범위 | 재무·제품 0행. 롤백·동시 실행 통합 테스트, 재시도·실행 로그 후속 구현 |
+
+실행 도구: `scripts/ingest_company.py`. 첫 기업 적재는 Python 표준 라이브러리와 컨테이너의 `psql` 활용. 계획의 psycopg 도입은 후속 적재기 확장 시 검토. 로컬 Docker 구성 전용 도구이며 원격 DB 접속 미지원.
+
+```bash
+# 최초 수집: 원문 경로와 기업 확인 결과 출력
+python3 scripts/ingest_company.py discover --stock-code 035420
+python3 scripts/ingest_company.py fetch --corp-code 00266961
+
+# 위 fetch가 출력한 원문 경로 사용
+python3 scripts/ingest_company.py replay <원문경로>
+python3 scripts/ingest_company.py replay <원문경로> --apply
+
+python3 -m unittest discover -s tests -v
+```
+
+수집 원문은 `data/raw/dart/`에 Git 제외 상태로 보관. 수집 시점은 메타데이터에서 재사용. 동일·오래된 시점의 기업 원문은 현재 값 갱신 제외. 홈페이지는 API가 제공한 `www.navercorp.com` 그대로 보존하며 HTTP/HTTPS 추정 추가 없음. 기업의 과거 값은 원문에서 확인 가능하지만 DB의 변경 이력 테이블은 미구현.
+
+DBeaver 확인 SQL:
+
+```sql
+SELECT c.legal_name, c.display_name, c.website_url,
+       i.namespace, i.external_value, c.collected_at
+FROM company c
+JOIN company_identifier i USING (company_id)
+WHERE i.namespace = 'dart' AND i.external_value = '00266961';
+```
 
 ## 1. 무엇부터 적재할 것인가
 
@@ -105,6 +142,6 @@ docs/ingestion.md     # 계획 → 실제 결과 순차 기록
 - 협업: 같은 레포의 코드로 각자 로컬 DB에 적재. 개발자별 localhost DB의 자동 공유·동기화 없음.
 - 블로그 주제: **“기업 데이터를 INSERT하기 전에 해결한 세 가지 — 기업 식별·중복·재무 정정”**. 원문 예시 → 선택 이유 → 재실행 실험 → 한계 순서, 실제 측정 이후 결과 추가.
 
-**다음 행동:** 루트 `.env`에 `OPENDART_API_KEY` 준비 → 대상 법인 확인 → 첫 응답 저장·검토. 현재 프로젝트 `.env`와 환경변수에서 OpenDART 키 미확인(2026-10-02). 키 값은 대화·커밋에 공유하지 않는 방식.
+**다음 행동:** 2025 사업보고서의 기간·계정 확인 후 재무 변환기 구현. 루트 `.env`의 `OPENDART_API_KEY` 설정 및 실제 인증 완료. 키 값은 대화·커밋에 공유하지 않는 방식.
 
-실행 결과: 아직 없음. API 공식문서에서 확인한 제공 항목과 실제 수집 결과를 구분하여 기록 예정.
+위 실행 기록 외 항목은 계획이며, 실제 수집·테스트 이후 결과 추가.
