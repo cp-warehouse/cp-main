@@ -15,6 +15,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = 'https://opendart.fss.or.kr/api/'
+ZIP_ENDPOINTS = {'corpCode.xml', 'fnlttXbrl.xml', 'document.xml'}
 
 
 def api_key():
@@ -41,7 +42,7 @@ def fetch(endpoint, params):
     request_hash = hashlib.sha256(json.dumps([endpoint, params], sort_keys=True).encode()).hexdigest()
     folder = ROOT / 'data/raw/dart' / request_hash / digest
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / ('response.zip' if endpoint == 'corpCode.xml' else 'response.json')
+    path = folder / ('response.zip' if endpoint in ZIP_ENDPOINTS else 'response.json')
     if not path.exists():
         path.write_bytes(raw)
     meta = folder / 'metadata.json'
