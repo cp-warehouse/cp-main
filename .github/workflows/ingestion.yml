@@ -1,0 +1,34 @@
+name: Collect company data
+on:
+  workflow_dispatch:
+    inputs:
+      year:
+        description: Financial request year (review filing period configuration first)
+        default: '2025'
+        required: true
+      retry_run:
+        description: Optional failed ingestion run UUID
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: cp-local-ingestion
+  cancel-in-progress: false
+jobs:
+  ingest:
+    # Dedicated trusted runner with this checkout, Docker and .env provisioned.
+    # No pull_request trigger: never run untrusted PR code on the local database host.
+    runs-on: [self-hosted, cp-ingestion]
+    env:
+      REQUEST_YEAR: ${{ inputs.year }}
+      RETRY_RUN: ${{ inputs.retry_run }}
+    steps:
+      - name: Apply tracked migrations and collect
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "${CP_INGESTION_DIR:?Set the reviewed checkout path on the dedicated runner}"
+          python3 scripts/migrate.py
+          args=(--apply --year "$REQUEST_YEAR")
+          if [[ -n "$RETRY_RUN" ]]; then args+=(--retry-run "$RETRY_RUN"); fi
+          python3 scripts/ingest_phase1.py "${args[@]}"

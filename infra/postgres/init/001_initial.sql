@@ -33,6 +33,8 @@ CREATE TABLE product (
     collected_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX product_company_idx ON product(company_id);
+CREATE UNIQUE INDEX product_company_website_unique_idx
+    ON product(company_id, website_url) WHERE website_url IS NOT NULL;
 COMMENT ON COLUMN product.company_id IS 'Initial scope: one verified current operator per product; no operator history.';
 
 CREATE TABLE financial_observation (
@@ -40,6 +42,7 @@ CREATE TABLE financial_observation (
     company_id uuid NOT NULL REFERENCES company(company_id),
     account_code text,
     account_name text NOT NULL,
+    source_account_name text NOT NULL,
     value numeric(30,6),
     currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
     fiscal_year integer NOT NULL,

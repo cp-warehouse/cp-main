@@ -1,0 +1,142 @@
+[
+  {
+    "label": "업스테이지",
+    "official_company": {
+      "domain": "upstage.ai",
+      "name_in_source": "Upstage",
+      "website_url": "https://www.upstage.ai/",
+      "source_url": "https://www.upstage.ai/news/upstage-series-b-bridge"
+    },
+    "funding_evidence": {
+      "stage": "series_b_bridge",
+      "stage_in_source": "Series B",
+      "announced_on": "2025-08-20",
+      "source_url": "https://www.upstage.ai/news/upstage-series-b-bridge"
+    }
+  },
+  {
+    "label": "리벨리온",
+    "official_company": {
+      "domain": "rebellions.ai",
+      "name_in_source": "Rebellions",
+      "website_url": "https://rebellions.ai/",
+      "source_url": "https://rebellions.ai/newsroom/rebellions-closes-400-million-pre-ipo-and-launches-rebelrack-and-rebelpod-to-accelerate-global-expansion/"
+    },
+    "funding_evidence": {
+      "stage": "pre_ipo",
+      "stage_in_source": "pre-IPO",
+      "announced_on": "2026-03-30",
+      "source_url": "https://rebellions.ai/newsroom/rebellions-closes-400-million-pre-ipo-and-launches-rebelrack-and-rebelpod-to-accelerate-global-expansion/"
+    }
+  },
+  {
+    "corp_code": "00266961",
+    "label": "NAVER",
+    "product": {
+      "name": "네이버 검색",
+      "website_url": "https://www.naver.com/",
+      "source_url": "https://www.navercorp.com/service/search",
+      "official_domain": "navercorp.com"
+    }
+  },
+  {
+    "corp_code": "00258801",
+    "label": "카카오",
+    "product": {
+      "name": "카카오톡",
+      "website_url": "https://www.kakaocorp.com/page/service/service?lang=KOR&tab=communication",
+      "source_url": "https://www.kakaocorp.com/page/service/service?lang=KOR&tab=communication",
+      "official_domain": "kakaocorp.com"
+    }
+  },
+  {
+    "corp_code": "01026731",
+    "label": "라인플러스",
+    "financial_document": {
+      "receipt_no": "20260706000496",
+      "member": "20260706000496_00761.xml",
+      "report_code": "consolidated_audit_report",
+      "fiscal_year": 2026,
+      "period_start": "2025-04-01",
+      "period_end": "2026-03-31",
+      "unit": "백만원",
+      "revenue_names": ["영업수익"]
+    },
+    "product": {
+      "name": "LINE",
+      "website_url": "https://line.me/",
+      "source_url": "https://www.linepluscorp.com/ko/business/service/",
+      "official_domain": "linepluscorp.com"
+    }
+  },
+  {
+    "corp_code": "01019166",
+    "label": "쿠팡",
+    "financial_document": {
+      "receipt_no": "20260410003543",
+      "member": "20260410003543_00761.xml",
+      "report_code": "consolidated_audit_report",
+      "fiscal_year": 2025,
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "unit": "백만원",
+      "revenue_names": ["매출액"]
+    },
+    "product": {
+      "name": "쿠팡",
+      "website_url": "https://www.coupang.com/",
+      "source_url": "https://news.coupang.com/company/",
+      "official_domain": "coupang.com"
+    }
+  },
+  {
+    "corp_code": "01063273",
+    "label": "우아한형제들",
+    "financial_document": {
+      "receipt_no": "20260410001926",
+      "member": "20260410001926_00761.xml",
+      "report_code": "consolidated_audit_report",
+      "fiscal_year": 2025,
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "unit": "원",
+      "revenue_names": ["영업수익"]
+    },
+    "product": {
+      "name": "배달의민족",
+      "website_url": "https://www.baemin.com/",
+      "source_url": "https://www.baemin.com/",
+      "official_domain": "baemin.com"
+    }
+  },
+  {
+    "corp_code": "01547845",
+    "label": "당근마켓",
+    "financial_document": {
+      "receipt_no": "20260327000262",
+      "member": "20260327000262.xml",
+      "report_code": "annual_report",
+      "fiscal_year": 2025,
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "unit": "원",
+      "revenue_names": ["영업수익"]
+    },
+    "product": {
+      "name": "당근",
+      "website_url": "https://www.daangn.com/",
+      "source_url": "https://about.daangn.com/service/",
+      "official_domain": "daangn.com"
+    }
+  },
+  {
+    "corp_code": "01212921",
+    "label": "비바리퍼블리카",
+    "product": {
+      "name": "토스",
+      "website_url": "https://toss.im/",
+      "source_url": "https://toss.im/",
+      "official_domain": "toss.im"
+    }
+  }
+]
