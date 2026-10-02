@@ -1,7 +1,7 @@
 # Phase 1 — 첫 데이터 적재 플랜
 
 > 목표: 기업 1개사의 실제 원문을 보관하고, 기업·제품·재무 데이터를 연결한 뒤 재실행해도 중복 없는 적재 검증.
-> 현재: 네이버 기업·식별자 첫 적재 및 동일 원문 재실행 검증 완료. 재무·제품·마이그레이션은 후속 구현.
+> 현재: 네이버 기업·식별자·대표 제품·2025 연결 재무 첫 적재 및 동일 원문 재실행 검증 완료.
 
 ## 실행 기록 — 2026-10-02
 
@@ -12,9 +12,15 @@
 | 첫 적재 | `company` 1행 + `company_identifier` 1행 |
 | 같은 원문 재실행 | 두 테이블 추가·갱신 0행, 같은 기업 UUID 유지 |
 | 변환 테스트 | 선택 필드 누락·앞자리 0·API 자료 없음·원문 해시·법인명 검증 4개 테스트 통과 |
-| 남은 범위 | 재무·제품 0행. 롤백·동시 실행 통합 테스트, 재시도·실행 로그 후속 구현 |
+| 2025 재무 | 사업보고서 접수번호 `20260313001021`, 연결 기준 3개 항목 적재 |
+| 재무 기간 검증 | JSON 금액과 XBRL fact를 대조하여 연간 `2025-01-01~12-31`, 시점 `2025-12-31` 확인 |
+| 재무 재실행·롤백 | 동일 원문 추가 0행, 잘못된 통화가 섞인 새 묶음 전체 롤백, 최종 3행 유지 |
+| 대표 제품 | NAVER Corp 공식 검색 서비스 페이지 확인, `네이버 검색` 1행 적재 |
+| 제품 재실행 | 같은 공식 URL 재실행 추가·갱신 0행, 같은 제품 UUID 유지 |
+| 최종 행 수 | 기업 1·식별자 1·제품 1·재무 3 |
+| 남은 범위 | 동시 실행 통합 테스트, 재시도·실행 로그, 다른 기업·기간 확장 |
 
-실행 도구: `scripts/ingest_company.py`. 첫 기업 적재는 Python 표준 라이브러리와 컨테이너의 `psql` 활용. 계획의 psycopg 도입은 후속 적재기 확장 시 검토. 로컬 Docker 구성 전용 도구이며 원격 DB 접속 미지원.
+실행 도구: `scripts/ingest_company.py`, `scripts/ingest_financial.py`, `scripts/ingest_product.py`. Python 표준 라이브러리와 컨테이너의 `psql` 활용. 계획의 psycopg 도입은 후속 적재기 확장 시 검토. 로컬 Docker 구성 전용 도구이며 원격 DB 접속 미지원.
 
 ```bash
 # 최초 수집: 원문 경로와 기업 확인 결과 출력
@@ -26,9 +32,36 @@ python3 scripts/ingest_company.py replay <원문경로>
 python3 scripts/ingest_company.py replay <원문경로> --apply
 
 python3 -m unittest discover -s tests -v
+
+# 2025 연결 재무 수집 후 출력된 두 원문 경로로 미리보기·적재
+python3 scripts/ingest_financial.py fetch --corp-code 00266961 --year 2025
+python3 scripts/ingest_financial.py replay <재무JSON경로> <XBRL경로>
+python3 scripts/ingest_financial.py replay <재무JSON경로> <XBRL경로> --apply
+
+# 기존 로컬 DB에 제품 중복 방지 인덱스 적용 후 공식 페이지 수집·적재
+docker compose -f infra/postgres/compose.yaml exec -T db \
+  psql -X -U company_dev -d company_analysis \
+  < infra/postgres/migrations/002_product_website_unique.sql
+python3 scripts/ingest_product.py fetch \
+  --corp-code 00266961 --name '네이버 검색' \
+  --website-url 'https://www.naver.com/' \
+  --source-url 'https://www.navercorp.com/service/search'
+python3 scripts/ingest_product.py replay <HTML원문경로> --apply
 ```
 
 수집 원문은 `data/raw/dart/`에 Git 제외 상태로 보관. 수집 시점은 메타데이터에서 재사용. 동일·오래된 시점의 기업 원문은 현재 값 갱신 제외. 홈페이지는 API가 제공한 `www.navercorp.com` 그대로 보존하며 HTTP/HTTPS 추정 추가 없음. 기업의 과거 값은 원문에서 확인 가능하지만 DB의 변경 이력 테이블은 미구현.
+
+재무 첫 적재 결과:
+
+| 계정 | 금액 | 기간·기준 |
+|---|---:|---|
+| 영업수익 | 12,035,007,218,975 KRW | 2025-01-01~12-31, 연간·연결 |
+| 영업이익 | 2,208,138,388,720 KRW | 2025-01-01~12-31, 연간·연결 |
+| 자산총계 | 41,084,496,327,318 KRW | 2025-12-31, 시점·연결 |
+
+금액은 [DART 전체 재무제표 API](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019020), 기간은 동일 접수번호의 [XBRL 원문](https://opendart.fss.or.kr/guide/detail.do?apiGrpCd=DS003&apiId=2019019)에서 교차 확인. 세 계정은 이름 검색이 아니라 재무제표 구분 + XBRL 계정 ID로 선택. 첫 적재는 당기 3개 지표만 포함하며 전체 239개 응답 행을 모두 저장하지 않음.
+
+제품은 [NAVER Corp 검색 서비스 페이지](https://www.navercorp.com/service/search)의 `네이버 검색` 설명과 `www.naver.com` 링크를 같은 HTML 원문에서 확인. `네이버페이`처럼 별도 법인이 명시된 서비스는 첫 대상에서 제외. `(company_id, website_url)` 부분 고유 인덱스로 동일 운영 기업·공식 URL의 중복 방지. 현재 모델은 운영 이력·공동 운영·URL 변경 이력 미지원.
 
 DBeaver 확인 SQL:
 
@@ -38,6 +71,10 @@ SELECT c.legal_name, c.display_name, c.website_url,
 FROM company c
 JOIN company_identifier i USING (company_id)
 WHERE i.namespace = 'dart' AND i.external_value = '00266961';
+
+SELECT account_name, value, currency, period_start, period_end, period_basis
+FROM financial_observation
+ORDER BY account_name;
 ```
 
 ## 1. 무엇부터 적재할 것인가
@@ -108,9 +145,9 @@ Docker PostgreSQL → DBeaver에서 원문과 저장 값 대조
 | D. 재실행 검증 | 동일 원문 두 번 처리, 변경 원문·잘못된 값 처리 | 동일 입력의 행 수·UUID 유지, 변경 재무 이력 보존 |
 | E. 공유 | 실행법·검증 SQL·실제 결과 기록, 동료 로컬 재현 | 별도 로컬 볼륨에서 같은 절차 성공 |
 
-**현재 스키마 보완 계획**
+**현재 스키마 보완 결과와 계획**
 
-- 제품: 공식 URL 정규화 정책 확정 후 `(company_id, website_url)` 고유 인덱스 마이그레이션 추가. URL 없는 제품은 첫 자동 적재에서 제외. URL 변경·공동 운영은 수동 검토.
+- 제품: `(company_id, website_url)` 부분 고유 인덱스 마이그레이션 적용. URL 없는 제품은 첫 자동 적재에서 제외. URL 변경·공동 운영은 수동 검토.
 - 기업: 기업 생성과 식별자 등록을 한 트랜잭션으로 처리. 동시 등록 충돌 시 전체 롤백 후 기존 식별자 재조회로 고아 기업 방지.
 - 기존 `001_initial.sql`만 수정하거나 볼륨을 초기화하는 방식 제외. 새 마이그레이션에 적용·검증·복구 절차 포함.
 - 원문 파일 쓰기 완료 후 DB 트랜잭션 시작. DB 실패 시 원문 유지 후 재실행. 파일 저장과 DB 저장이 단일 트랜잭션이 아니라는 한계 명시.
@@ -142,6 +179,6 @@ docs/ingestion.md     # 계획 → 실제 결과 순차 기록
 - 협업: 같은 레포의 코드로 각자 로컬 DB에 적재. 개발자별 localhost DB의 자동 공유·동기화 없음.
 - 블로그 주제: **“기업 데이터를 INSERT하기 전에 해결한 세 가지 — 기업 식별·중복·재무 정정”**. 원문 예시 → 선택 이유 → 재실행 실험 → 한계 순서, 실제 측정 이후 결과 추가.
 
-**다음 행동:** 2025 사업보고서의 기간·계정 확인 후 재무 변환기 구현. 루트 `.env`의 `OPENDART_API_KEY` 설정 및 실제 인증 완료. 키 값은 대화·커밋에 공유하지 않는 방식.
+**다음 행동:** DBeaver에서 4개 테이블 결과 확인 → 동료 환경 재현 → 첫 적재 PR 리뷰. 이후 카카오 등 두 번째 상장 IT 기업으로 일반화 범위 확인. 루트 `.env`의 `OPENDART_API_KEY` 설정 및 실제 인증 완료. 키 값은 대화·커밋에 공유하지 않는 방식.
 
 위 실행 기록 외 항목은 계획이며, 실제 수집·테스트 이후 결과 추가.
