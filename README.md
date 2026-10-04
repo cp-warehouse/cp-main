@@ -76,6 +76,78 @@ python3 scripts/ingest_phase1.py --apply --retry-run <run_id>
 
 대상 추가·제외는 [기업 설정](config/phase1_targets.json)에서 관리. DART 기업은 `corp_code`, 공식 홈페이지 기반 기업은 `official_company` 사용. `enabled: false`로 수집 제외. 투자 단계는 공식 발표일·출처와 함께 기록하며 최신 단계 추정 제외.
 
+## 기업 DB 기반 뉴스 수집
+
+DART 1,000개 배치와 독립 뉴스 수집은 [독립 수집기 실행 안내](docs/collectors.md) 참고.
+
+DART에서 지정한 소수 기업을 DB에 저장한 뒤, 보유 기업을 선택해 뉴스 적재.
+기업·기사 중복 방지와 요청량 제한 포함.
+실행 순서와 조회 SQL은 [로컬 파이프라인 실행 안내](docs/company-news-pipeline.md) 참고.
+
+## 뉴스 크롤링 1차 확인
+
+Python 3 표준 라이브러리만 사용. DB·Docker·OpenDART 키 없이 실행 가능.
+`task.md`의 기존 수집 흐름을 `scripts/crawl_news.py`로 재구현.
+
+```bash
+# 임의의 기업명으로 다음 뉴스 검색 → 기본 1페이지에서 최대 3건 본문 수집
+python3 scripts/crawl_news.py --query "비바리퍼블리카" --limit 3
+
+# 검색 범위 확장: 최대 3페이지, 기사 요청 최대 10건
+python3 scripts/crawl_news.py --query "업스테이지" --pages 3 --limit 10
+
+# 다음 기사 URL 직접 수집 (--url 반복 가능)
+python3 scripts/crawl_news.py --url "https://v.daum.net/v/20261002020611821"
+```
+
+결과는 실행별 `data/processed/news/<run_id>/result.json`, 검색·기사 HTML은
+`data/raw/news/<run_id>/`에 저장. 모두 Git 제외 경로.
+JSON에는 제목·본문·매체명·발행 시각·수집 시각·이미지 URL·원문 위치와 오류 목록 포함.
+이미지는 다운로드하지 않으며 이미지가 없어도 기사 저장. 발행 시각을 확인하지 못하면 null.
+동일 기사 URL은 한 실행 안에서 중복 제거하며, 재실행 시 새 실행 폴더에 별도 보관.
+
+현재 지원 범위는 다음 검색 결과 중 `v.daum.net/v/<기사번호>` 기사와 해당 URL 직접 입력.
+다른 언론사 본문 수집, 기업 탭 UI, DB 적재, 정기 실행은 아직 미포함.
+검색어는 기업 확정 연결이 아니므로 `relevance_status=unverified`로 기록.
+본문 누락·구조 변경은 오류로 기록하고 다음 기사 처리.
+부분 실패·검색 결과 없음은 종료 코드 1, 오류 없이 1건 이상 저장하면 0.
+요청 사이 1초 간격, 기존 HTTP 모듈의 타임아웃·일시적 오류 재시도 사용.
+
+## DART → 기업별 뉴스 파이프라인 테스트
+
+루트 `.env`의 `OPENDART_API_KEY`와 Python 3 사용. DB·Docker 없이 로컬 파일로 연결 흐름 검증.
+고정된 `phase1_targets.json` 대신 실제 DART 기업 목록에서 대상 선택.
+
+```bash
+# DART 목록 전체 저장 → 상장 종목코드 순 첫 3개 기업의 개황 → 기업별 뉴스 최대 2건
+python3 scripts/crawl_dart_news.py --company-limit 3 --article-limit 2
+
+# 정확한 기업명으로 선택 (동명 기업이 여러 개면 오류, 자동 병합하지 않음)
+python3 scripts/crawl_dart_news.py --name 삼성전자 --company-limit 1 --article-limit 2
+
+# DART 코드로 정확한 법인 선택: 삼성전자·카카오·한미반도체
+python3 scripts/crawl_dart_news.py \
+  --corp-code 00126380 --corp-code 00258801 --corp-code 00161383 \
+  --company-limit 3 --article-limit 2
+```
+
+`data/processed/dart-news/<run_id>/companies.json`에 전체 기업 목록,
+`result.json`에 선택 기업의 개황, 검색 조건, 문서, 기업-문서 연결 후보, 오류 저장.
+기업개황은 이름·홈페이지·업종코드·설립일·법인/사업자번호 등 API 값 보관. 빈 값 추정 제외.
+DART 목록은 공시대상회사 기준으로 국내 전체 사업자와 범위가 다름. 동일 이름의 별도 코드·과거 기업 포함 가능.
+뉴스 검색어는 기업개황의 법인명에서 법인 표기만 제거해 생성. 별칭 추정 제외.
+기업명·종목명 문자열이 본문/제목에 등장하면 근거 구절과 함께 `candidate`, 아니면 `unmatched`.
+두 상태 모두 법인 관련성 미확정으로 `verified=false` 기록.
+실제 테스트에서 제보 안내의 카카오톡, 관련 기사 링크의 기업명이 후보로 잡힌 사례 확인.
+검색 결과 수·문자열 일치 수와 유효 기업 뉴스 수 구분 필요.
+
+기사 원문은 `data/raw/dart-news/`, DART 응답은 기존 `data/raw/dart/`에 보관.
+동일 기사 URL은 실행 내 재사용하고 여러 기업에 연결 가능. 실행 간 중복 제거·재개는 아직 미지원.
+뉴스는 기업별 검색 첫 페이지의 다음 기사만 대상이며 기사 요청 상한은 `--article-limit`.
+한 기업/기사 실패는 기록 후 다음 대상으로 진행하고, DART 인증·한도 오류는 중단.
+기업별 중간 결과를 저장하며 전체 성공 시 종료 코드 0, 일부 실패·기사 없음은 1.
+이 테스트에서 정기 실행, DB 적재·마이그레이션, 기업 탭 UI, 기사 내 투자·제품 등 사실 추출은 미포함.
+
 ## 자동화 범위와 기록 확인
 
 ```text

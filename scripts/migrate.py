@@ -19,6 +19,10 @@ def apply():
     for path in sorted((ROOT / 'infra/postgres/migrations').glob('*.sql')):
         checksum = hashlib.sha256(path.read_bytes()).hexdigest()
         name = literal(path.name)
+        # Explicitly supported rewrite of the original, local-only 005 migration.
+        # Only its exact former checksum is eligible; all other mismatches still fail.
+        if path.name == '005_company_news_pipeline.sql':
+            statements.append(f"DELETE FROM schema_migration WHERE version={name} AND checksum='9d77e7c1b34d3dd4c01cbb819888aa24588039bc56353b7edc2421f65c2af656';")
         statements.append(fr"""DO $$ BEGIN
           IF EXISTS (SELECT 1 FROM schema_migration WHERE version={name}
                      AND checksum <> '{checksum}') THEN
